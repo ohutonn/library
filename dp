@@ -2,7 +2,7 @@
 
 import sys
 input = sys.stdin.readline
-from collections import deque
+from collections import deque, Counter
 
 mod = 10 ** 9 + 7
 N = int(input())
@@ -24,6 +24,7 @@ while Q:
             X[a].remove(i)
             deque.append(Q, a)
 
+# C = Counter(P) # 子の数
 ##### Settings
 unit = 1
 merge = lambda a, b: a * b % mod
@@ -56,7 +57,7 @@ for i in R[1:][::-1]:
     ME[p] = merge(ME[p], XX[i])
 XX[R[0]] = adj_fin(ME[R[0]], R[0])
 
-for i in R:
+for i in R: # 下の4行は adj_td が a によらないなら不要
     ac = TD[i]
     for j in X[i]:
         TD[j] = ac
