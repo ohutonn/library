@@ -1,0 +1,48 @@
+# いろはちゃんコンテスト day2 通学路
+import sys
+read = sys.stdin.buffer.read
+readline = sys.stdin.buffer.readline
+readlines = sys.stdin.buffer.readlines
+
+from heapq import heappush, heappop
+
+N,M,K = map(int,readline().split())
+ABC = [list(map(int,readline().split())) for _ in range(M)]
+m = map(int,read().split())
+XY = list(zip(m,m))
+
+graph = [[] for _ in range(N)]
+for a,b,c in ABC:
+    graph[a-1].append((b-1,c))
+    graph[b-1].append((a-1,c))
+
+INF = 10 ** 18
+dist = [[INF] * (K+1) for _ in range(N)]
+dist[0][0] = 0
+q = [(0,0,0)]
+while q:
+    dv,k,v = heappop(q)
+    if dist[v][k] < dv:
+        continue
+    if v == N-1 and k == K:
+        break
+    x,y = XY[v]
+    # 花の購入
+    if k < K:
+        kk = min(k + x, K)
+        dd = dv + y
+        if dist[v][kk] > dd:
+            dist[v][kk] = dd
+            heappush(q,(dd,kk,v))
+    # 移動
+    for w,cost in graph[v]:
+        dw = dv + cost
+        if dist[w][k] <= dw:
+            continue
+        dist[w][k] = dw
+        heappush(q,(dw,k,w))
+
+answer = dist[N-1][K]
+if answer == INF:
+    answer = -1
+print(answer)
