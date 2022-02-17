@@ -1,0 +1,103 @@
+#ABC160-F
+#例(ex)は sumple4 参照
+
+import sys
+input = sys.stdin.readline
+from collections import deque
+
+mod = 10 ** 9 + 7
+N = int(input())
+X = [[] for i in range(N)]
+for i in range(N-1):
+    x, y = map(int, input().split())
+    X[x-1].append(y-1)
+    X[y-1].append(x-1)
+
+P = [-1] * N
+Q = deque([0])
+R = [] # トポロジカルソート、R[0] が根
+while Q:
+    i = deque.popleft(Q)
+    R.append(i)
+    for a in X[i]:
+        if a != P[i]:
+            P[a] = i
+            X[a].remove(i)
+            deque.append(Q, a)
+
+##### Settings
+unit = 1
+merge = lambda a, b: a * b % mod
+adj_bu = lambda a, i: a * fainv[SIZE[i]] % mod
+adj_td = lambda a, i, p: a * fainv[N-SIZE[p]] % mod
+adj_fin = lambda a, i: a * nCm(N-1,N-SIZE[i]) % mod
+#####
+
+nn = 200200
+mod = 10**9+7
+
+fa = [1] * (nn+1)
+fainv = [1] * (nn+1)
+for i in range(nn):
+    fa[i+1] = fa[i] * (i+1) % mod
+fainv[-1] = pow(fa[-1], mod-2, mod)
+for i in range(nn)[::-1]:
+    fainv[i] = fainv[i+1] * (i+1) % mod
+
+nCm = lambda n,m: fa[n] * fainv[n-m] * fainv[m] % mod
+
+SIZE = [1] * N # SIZE[i]: iを根とする木に含まれる頂点数、ex:SIZE[R[0]] = N,SIZE[6] = 3
+for i in reversed(R[1:]):
+    SIZE[P[i]] += SIZE[i]
+
+ME = [fa[SIZE[i]-1] for i in range(N)]
+XX = [0] * N
+TD = [fa[N-1-SIZE[i]] for i in range(N)]
+for i in reversed(R[1:]):
+    XX[i] = adj_bu(ME[i], i)
+    p = P[i]
+    ME[p] = merge(ME[p], XX[i])
+XX[R[0]] = adj_fin(ME[R[0]], R[0])
+TD[0] = 1 # 今回は SIZE[R[0]] = N からN-1-SIZE[R[0]] = -1 となってしまうので修正
+
+#print(ME,XX)
+#print(SIZE[0],TD)
+
+for i in R:
+    ac = TD[i] # 消すとiに接する、jを除いた子のみの総和を求めるようになる
+    for j in X[i]:
+        TD[j] *= ac # TD[] = unit の時は TD[j] = ac でよい。merge が総和なら += に変更
+        ac = merge(ac, XX[j])
+    ac = unit
+    for j in reversed(X[i]):
+        #print(i,j,merge(TD[j], ac),ac,TD[j])
+        TD[j] = adj_td(merge(TD[j], ac), j, i)
+        ac = merge(ac, XX[j])
+        XX[j] = adj_fin(merge(ME[j], TD[j]), j)
+        
+#print(TD)
+print(*XX, sep = "\n")
+
+###解説
+ex.　 １　　P(親)
+   　 ｜
+    　２　　i
+      ｜
+      ３   c(子)
+     /　\  \
+    4   5   6
+            | \    
+            7  8
+            
+まず下から上に木dpをする。この時、ME[i]: iが根の時の答え、adj_bu = acc[i][p]: ME[i] を使ってME[p] を求めるための変数、XX[i] を返す
+ME[3] を求めるとすると、ME[3] = ME[4]*ME[5]*ME[6]*SIZE[4+5+6]/(SIZE[4]!*SIZE[5]!*SIZE[6]!)
+                            = (ME[4]/SIZE[4]!)*(ME[5]/SIZE[5]!)*(ME[6]/SIZE[6]!)*(SIZE[3]-1)! となるので、
+ME_int[i] = SIZE[i]-1, adj_bu(ME[i],i): ME[i]/SIZE[i]!, merge(XX[i], XX[j]): XX[i]*XX[j] とすればよい。
+   
+ME ができたら、次に上から木dpをする。TD[i]: iが葉の時の答え、adj_td = acc[P][i]: merge(TD[P],XX[Cp1],XX[Cp2]) からTD[i] を返す。
+mergeは７４行目のやつで完了している
+TD[4] を求めるとすると、TD[4] = acc[3][4] = (TD[3]/(N-SIZE[3])!)*XX[3]*XX[6]*(SIZE[5+6]+N-SIZE[3])!  (XX[5] = acc[5][3] = ME[5]/SIZE[5]!)
+                            = (TD[3]/(N-SIZE[3])!)*XX[3]*XX[6]*(N-SIZE[3]-1)! となるので、
+TD_int[i] = (N-SIZE[i]-1)!, adj_td(merge,i,p): merge/(N-SIZE[P])!　(merge = TD[3]*XX[3]*XX[6]) とすればよい。
+ANS[i] = n-1Cn-size_i*ME[i]*TD[i] で求めるので、adj_fin(ME,TD): n-1Csize_i*ME*TD となる。メモリ削減のため答えはXX に入るようになる。
+###
