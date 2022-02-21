@@ -16,8 +16,9 @@ for i in range(N-1):
 P = [-1] * N
 Q = deque([0])
 R = [] # トポロジカルソート、R[0] が根
+# pop()だとトポロジカル順になる。popleft()は根から近い順になる
 while Q:
-    i = deque.popleft(Q)
+    i = deque.pop(Q)
     R.append(i)
     for a in X[i]:
         if a != P[i]:
