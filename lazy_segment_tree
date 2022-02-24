@@ -207,8 +207,8 @@ class LazySegTree(SegTree):
             if ((r >> i) << i) != r:
                 self._push(r >> i)
 
-        sml = self.e
-        smr = self.e
+        sml = self.e # 初期値 != 単位元のときはここを変える
+        smr = self.e # ex. A = [0]*N; op_data : max(di, dj), op_lazy : old + que, -10**5<que
         while l < r:
             if l & 1:
                 sml = self.op(sml, self.data[l])
