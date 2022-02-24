@@ -1,0 +1,122 @@
+class HLD:
+  def __init__(self, N, G):
+    self.G = G
+    self.par = [-1]*N #親ノード
+    self.size = [1]*N #部分木のサイズ
+    self.depth = [-1]*N #深さ
+    self.dfs1()
+
+    self.in_order = [-1]*N #行きがけ順
+    self.in_order_now = 0
+    self.top = [-1]*N #分解後の連結成分の中で最も浅い頂点
+    self.dfs2()
+    
+  def dfs1(self):
+    stack = [(0, -1, 0)]
+        
+    while stack:
+      v, pv, d = stack.pop()
+      self.depth[v] = d
+            
+      for nv in self.G[v]:
+        if nv==pv:
+          continue
+                
+        stack.append((nv, v, d+1))
+        self.par[nv] = v
+        
+    vs = [(self.depth[i], i) for i in range(N)]
+    vs.sort(reverse=True)  
+    for _, v in vs:
+      for nv in G[v]:
+        if nv!=self.par[v]:
+          self.size[v] += self.size[nv]
+    
+  def dfs2(self):
+    stack = [(-1,-1,0),(0, -1, 0)]
+    ET2 = [0]*N
+    while stack:
+      v, pv, top_node = stack.pop()
+            
+      if v < 0:
+        ET2[~v] = self.in_order_now-1
+        continue
+
+      self.in_order[v] = self.in_order_now
+      self.in_order_now += 1
+      self.top[v] = top_node
+
+      if self.size[v]==1: continue
+
+      M = 0; heavy_node = -1
+      for nv in self.G[v]:
+        if nv==pv: continue
+        if self.size[nv]>M:
+          M = self.size[nv]
+          heavy_node = nv
+
+      for nv in self.G[v]:
+        if nv==pv: continue
+        if nv!=heavy_node:
+          stack.append((~nv, v, nv))
+          stack.append((nv, v, nv))
+
+      stack.append((~heavy_node, v, top_node))
+      stack.append((heavy_node, v, top_node))
+    self.ET2 = ET2
+   
+        
+  def passf(self, u, v):
+    dep = self.depth; top = self.top; ET1 = self.in_order
+    res = []
+
+    while top[u] != top[v]:
+      if dep[top[u]] <= dep[top[v]]:
+        res.append((ET1[top[v]], ET1[v]))
+        v = self.par[top[v]]
+      else:
+        res.append((ET1[top[u]], ET1[u]))
+        u = self.par[top[u]]
+
+    res.append((min(ET1[u], ET1[v]), max(ET1[u],ET1[v])))
+    return res
+
+  def subtree(self, s): #[a, b) で出力
+    ET1, ET2 = self.in_order, self.ET2
+    return (ET1[s], ET2[s] + 1)
+      
+  def lca(self, v, u): # O(logN)
+    Parent = self.par
+    in_order = self.in_order
+    top = self.top
+    while True:
+      if in_order[v] > in_order[u]:
+        v, u = u, v  # v の方を根に近くする
+      if top[v] == top[u]:
+        return v
+      u = Parent[top[u]]
+            
+  def distance(self, v, u):# O(logN)
+    depth = self.depth
+    return depth[v] + depth[u] - 2 * depth[self.lca(v, u)]
+    
+   
+   
+N, Q = map(int,input().split())
+G = [[] for _ in range(N)]
+V = []
+for _ in range(N-1):
+    u, v = map(int, input().split())
+    G[u-1].append(v-1)
+    G[v-1].append(u-1)
+    V.append((u-1, v-1))  
+   
+ hld = HLD(N, G)
+ 
+ 
+ """
+ ~HL分解~ 木構造において
+ 1.LCAを求める、根からの距離を求める
+ 2.2点(a, b)上にあるすべての点にx加算とかできる(セグ木を使って区間処理可能）
+ 3.点iを根とする部分木すべてに区間処理できる
+ """
