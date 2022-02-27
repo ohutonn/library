@@ -1,0 +1,38 @@
+ABC 241 E
+058 - Original Calculator（★4）
+
+n, k = map(int, input().split())
+a = list(map(int, input().split()))
+
+from collections import defaultdict
+xi = 0
+d = defaultdict(int) ###
+e = defaultdict(int) # xi 周回用
+c = [0] # list 周回用
+cnt = 0 ###
+while True:
+  if cnt == k: ###
+    print(sum(c))
+    break
+  if d[xi] == 0:
+    cnt += 1 ###
+    d[xi] = cnt ###
+    e[cnt] = xi
+    c.append(a[xi])
+    
+    xi += a[xi]
+    xi %= n
+
+  else:
+    T = cnt-d[xi]+1 ###
+    #print(c,cnt,xi,d[xi],T,'T')
+    ind = (k-d[xi]+1)%T+d[xi]
+    print(e[ind])
+    
+    ans = sum(c)
+    p = (k-cnt)//T
+    ans += sum(c[d[xi]:])*p
+    r = (k-cnt)%T
+    ans += sum(c[d[xi]:d[xi]+r])
+    print(ans)
+    break
