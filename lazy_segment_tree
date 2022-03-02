@@ -2,316 +2,170 @@
 AtCoder Library Practice Contest K - Range Affine Range Sum
 
 import sys
-input = sys.stdin.buffer.readline
-sys.setrecursionlimit(10 ** 7)
-mod = 998244353
-
-
-class SegTree(object):
-    def __init__(self, N, op_data, u_data):
-        self._n = N
-        self.log = (N-1).bit_length()
-        self.size = 1 << self.log
-
-        self.op = op_data
-        self.e = u_data
-
-        self.data = [u_data] * (2 * self.size)
-        self.len = [1] * (2 * self.size)
-
-    def _update(self, i):
-        self.data[i] = self.op(self.data[i << 1], self.data[i << 1 | 1])
-
-    def initialize(self, arr):
-        """ segtreeをarrで初期化する。len(arr) == Nにすること """
-        for i, a in enumerate(arr, self.size):
-            self.data[i] = a
-        for i in reversed(range(1, self.size)):
-            self._update(i)
-            self.len[i] = self.len[i << 1] + self.len[i << 1 | 1]
-
-    def update(self, p, x):
-        """ data[p] = x とする (0-indexed)"""
-        p += self.size
-        self.data[p] = x
-        for i in range(1, self.log + 1):
-            self._update(p >> i)
-
-    def get(self, p):
-        """ data[p]を返す """
-        return self.data[p + self.size]
-
-    def prod(self, l, r):
-        """
-        op_data(data[l], data[l+1], ..., data[r-1])を返す (0-indexed)
-        """
-        sml = self.e
-        smr = self.e
-        l += self.size
-        r += self.size
-
-        while l < r:
-            if l & 1:
-                sml = self.op(sml, self.data[l])
-                l += 1
-            if r & 1:
-                r -= 1
-                smr = self.op(self.data[r], smr)
-            l >>= 1
-            r >>= 1
-        return self.op(sml, smr)
-
-    def all_prod(self):
-        """ op(data[0], data[1], ... data[N-1])を返す """
-        return self.data[1]
-
-    def max_right(self, l, func):
-        """
-        func(l, l+1, ..., r-1) = True,
-        func(l, l+1, ..., r-1, r) = Falseとなる r を返す
-        """
-        if l == self._n:
-            return self._n
-        l += self.size
-        sm = self.e
-        while True:
-            while l % 2 == 0:
-                l >>= 1
-            if not func(self.op(sm, self.data[l])):
-                while l < self.size:
-                    l <<= 1
-                    if func(self.op(sm, self.data[l])):
-                        sm = self.op(sm, self.data[l])
-                        l += 1
-                return l - self.size
-            sm = self.op(sm, self.data[l])
-            l += 1
-            if (l & -l) == l:
-                break
-        return self._n
-
-    def min_left(self, r, func):
-        """
-        func(     l, l+1, ..., r-1) = True,
-        func(l-1, l, l+1, ..., r-1) = Falseとなる l を返す
-        """
-        if r == 0:
-            return 0
-        r += self.size
-        sm = self.e
-        while True:
-            r -= 1
-            while r > 1 and r & 1:
-                r >>= 1
-            if not func(self.op(self.data[r], sm)):
-                while r < self.size:
-                    r = r << 1 | 1
-                    if func(self.op(self.data[r], sm)):
-                        sm = self.op(self.data[r], sm)
-                        r -= 1
-                return r + 1 - self.size
-            sm = self.op(self.data[r], sm)
-            if (r & -r) == r:
-                break
-        return 0
-
-
-class LazySegTree(SegTree):
-    def __init__(self, N, op_data, u_data, op_lazy, u_lazy, op_merge):
-        super().__init__(N, op_data, u_data)
-        self.composition = op_lazy
-        self.mapping = op_merge
-        self.id = u_lazy
-
-        self.lazy = [u_lazy] * self.size
-
-    def _all_apply(self, i, F):
-        self.data[i] = self.mapping(F, self.data[i], self.len[i])
-        if i < self.size:
-            self.lazy[i] = self.composition(F, self.lazy[i])
-
-    def _push(self, i):
-        self._all_apply(i << 1, self.lazy[i])
-        self._all_apply(i << 1 | 1, self.lazy[i])
-        self.lazy[i] = self.id
-
-    def update(self, p, x):
-        """ data[p] = x とする (0-indexed)"""
-        p += self.size
-        for i in reversed(range(1, self.log + 1)):
-            self._push(p >> i)
-        self.data[p] = x
-        for i in range(1, self.log + 1):
-            self._update(p >> i)
-
-    def apply(self, p, F):
-        """ data[p]にFを作用させる(data[p] = op_merge(F, data[p])とする, 0-indexed) """
-        p += self.size
-        for i in reversed(range(1, self.log + 1)):
-            self._push(p >> i)
-        self.data[p] = self.mapping(F, self.data[p], self.len[p])
-        for i in range(1, self.log + 1):
-            self._update(p >> i)
-
-    def range_apply(self, l, r, F):
-        """ i = l, l+1, ..., r-1 について、Fを作用させる(op_merge(F, data[i]), 0-indexed) """
-        if l == r:
-            return
-
-        l += self.size
-        r += self.size
-        for i in reversed(range(1, self.log + 1)):  # too->down
-            if ((l >> i) << i) != l:
-                self._push(l >> i)
-            if ((r >> i) << i) != r:
-                self._push((r - 1) >> i)
-
-        l2, r2 = l, r
-        while l < r:
-            if l & 1:
-                self._all_apply(l, F)
-                l += 1
-            if r & 1:
-                r -= 1
-                self._all_apply(r, F)
-            l >>= 1
-            r >>= 1
-        l, r = l2, r2
-
-        for i in range(1, self.log + 1):
-            if ((l >> i) << i) != l:
-                self._update(l >> i)
-            if ((r >> i) << i) != r:
-                self._update((r - 1) >> i)
-
-    def get(self, p):
-        """ data[p]を返す """
-        p += self.size
-        for i in reversed(range(1, self.log + 1)):
-            self._push(p >> i)
-        return self.data[p]
-
-    def prod(self, l, r):
-        """
-        op_data(data[l], data[l+1], ..., data[r-1])を返す (0-indexed)
-        l == rの時は単位元u_dataを返す
-        """
-        if l == r:
-            return self.e
-
-        l += self.size
-        r += self.size
-        for i in reversed(range(1, self.log + 1)):
-            if ((l >> i) << i) != l:
-                self._push(l >> i)
-            if ((r >> i) << i) != r:
-                self._push(r >> i)
-
-        sml = self.e # 初期値 != 単位元のときはここを変える
-        smr = self.e # ex. A = [0]*N; op_data : max(di, dj), op_lazy : old + que, -10**5<que
-        while l < r:
-            if l & 1:
-                sml = self.op(sml, self.data[l])
-                l += 1
-            if r & 1:
-                r -= 1
-                smr = self.op(self.data[r], smr)
-            l >>= 1
-            r >>= 1
-        return self.op(sml, smr)
-
-    def max_right(self, l, func):
-        """
-        func(l, l+1, ..., r-1) = True,
-        func(l, l+1, ..., r-1, r) = Falseとなる r を返す
-        """
-        if l == self._n:
-            return self._n
-        l += self.size
-        for i in reversed(range(1, self.log + 1)):
-            self._push(l >> i)
-
-        sm = self.e
-        while True:
-            while l % 2 == 0:
-                l >>= 1
-            if not func(self.op(sm, self.data[[l]])):
-                while l < self.size:
-                    self._push(l)
-                    l <<= 1
-                    if func(self.op(sm, self.data[l])):
-                        sm = self.op(sm, self.data[l])
-                        l += 1
-                return l - self.size
-            sm = self.op(sm, self.data[l])
-            l += 1
-            if (l & -l) == l:
-                break
-        return self._n
-
-    def min_left(self, r, func):
-        """
-        func(     l, l+1, ..., r-1) = True,
-        func(l-1, l, l+1, ..., r-1) = Falseとなる l を返す
-        """
-        if r == 0:
-            return 0
-        r += self.size
-        for i in reversed(range(1, self.log + 1)):
-            self._push((r - 1) >> i)
-        sm = self.e
-        while True:
-            r -= 1
-            while r > 1 and r & 1:
-                r >>= 1
-            if not func(self.op(self.data[r], sm)):
-                while r < self.size:
-                    self._push(r)
-                    r = r << 1 | 1
-                    if func(self.op(self.data[r], sm)):
-                        sm = self.op(self.data[r], sm)
-                        r -= 1
-                return r + 1 - self.size
-            sm = self.op(self.data[r], sm)
-            if (r & -r) == r:
-                break
-        return 0
-      
-    def debug(self):
-        print([self.get(i) for i in range(self._n)])
-        
-        
-# d[l,r): A[l,r)から抽出する情報      
-def op_data(l, r): # d[l,m)とd[m,r)の演算, dataを返す
-    return max(l, r)
-
-def op_lazy(query, lazy_old): # lazy_oldに更新queryを作用させる, lazy_newを返す
-    return max(query, lazy_old)
-
-u_data = 0 # data の単位元
-u_lazy = 0 # lazy の単位元
-
-# lazy[i] が l≤i<r において同じ更新をしていた時に、
-# d[l,r) を lazy[i] を用いて d'[l,r) に更新する, dataを返す
-# size: len[l,r) = r-1-l, d[l,r) = sum(A[l,r)) とかで使う
-def op_merge(lazy_i, d, size):
-    return max(lazy_i, d)
+input = lambda: sys.stdin.readline().rstrip()
+ 
+class LazySegmentTree():
+    def __init__(self, init, unitX, unitA, f, g, h):
+        self.f = f # (X, X) -> X
+        self.g = g # (X, A, size) -> X
+        self.h = h # (A, A) -> A
+        self.unitX = unitX
+        self.unitA = unitA
+        self.f = f
+        if type(init) == int:
+            self.n = init
+            # self.n = 1 << (self.n - 1).bit_length()
+            self.X = [unitX] * (self.n * 2)
+            self.size = [1] * (self.n * 2)
+        else:
+            self.n = len(init)
+            # self.n = 1 << (self.n - 1).bit_length()
+            self.X = [unitX] * self.n + init + [unitX] * (self.n - len(init))
+            self.size = [0] * self.n + [1] * len(init) + [0] * (self.n - len(init))
+            for i in range(self.n-1, 0, -1):
+                self.X[i] = self.f(self.X[i*2], self.X[i*2|1])
     
+        for i in range(self.n - 1, 0, -1):
+            self.size[i] = self.size[i*2] + self.size[i*2|1]
+        
+        self.A = [unitA] * (self.n * 2)
+        
+    def update(self, i, x):
+        i += self.n
+        self.X[i] = x
+        i >>= 1
+        while i:
+            self.X[i] = self.f(self.X[i*2], self.X[i*2|1])
+            i >>= 1
+    
+    def calc(self, i):
+        return self.g(self.X[i], self.A[i], self.size[i])
+    
+    def calc_above(self, i):
+        i >>= 1
+        while i:
+            self.X[i] = self.f(self.calc(i*2), self.calc(i*2|1))
+            i >>= 1
+    
+    def propagate(self, i):
+        self.X[i] = self.g(self.X[i], self.A[i], self.size[i])
+        self.A[i*2] = self.h(self.A[i*2], self.A[i])
+        self.A[i*2|1] = self.h(self.A[i*2|1], self.A[i])
+        self.A[i] = self.unitA
+        
+    def propagate_above(self, i):
+        H = i.bit_length()
+        for h in range(H, 0, -1):
+            self.propagate(i >> h)
+    
+    def propagate_all(self):
+        for i in range(1, self.n):
+            self.propagate(i)
+    
+    def getrange(self, l, r):
+        l += self.n
+        r += self.n
+        l0, r0 = l // (l & -l), r // (r & -r) - 1
+        self.propagate_above(l0)
+        self.propagate_above(r0)
+        
+        al = self.unitX
+        ar = self.unitX
+        while l < r:
+            if l & 1:
+                al = self.f(al, self.calc(l))
+                l += 1
+            if r & 1:
+                r -= 1
+                ar = self.f(self.calc(r), ar)
+            l >>= 1
+            r >>= 1
+        return self.f(al, ar)
+    
+    def getvalue(self, i):
+        i += self.n
+        self.propagate_above(i)
+        return self.calc(i)
+    
+    def operate_range(self, l, r, a):
+        l += self.n
+        r += self.n
+        l0, r0 = l // (l & -l), r // (r & -r) - 1
+        self.propagate_above(l0)
+        self.propagate_above(r0)
+        while l < r:
+            if l & 1:
+                self.A[l] = self.h(self.A[l], a)
+                l += 1
+            if r & 1:
+                r -= 1
+                self.A[r] = self.h(self.A[r], a)
+            l >>= 1
+            r >>= 1
+        
+        self.calc_above(l0)
+        self.calc_above(r0)
+    
+    # Find r s.t. calc(l, ..., r-1) = True and calc(l, ..., r) = False
+    def max_right(self, l, z):
+        if l >= self.n: return self.n
+        l += self.n
+        s = self.unitX
+        while 1:
+            while l % 2 == 0:
+                l >>= 1
+            if not z(self.f(s, self.calc(l))):
+                while l < self.n:
+                    l *= 2
+                    if z(self.f(s, self.calc(l))):
+                        s = self.f(s, self.calc(l))
+                        l += 1
+                return l - self.n
+            s = self.f(s, self.calc(l))
+            l += 1
+            if l & -l == l: break
+        return self.n
+    
+    # Find l s.t. calc(l, ..., r-1) = True and calc(l-1, ..., r-1) = False
+    def min_left(self, r, z):
+        if r <= 0: return 0
+        r += self.n
+        s = self.unitX
+        while 1:
+            r -= 1
+            while r > 1 and r % 2:
+                r >>= 1
+            if not z(self.f(self.calc(r), s)):
+                while r < self.n:
+                    r = r * 2 + 1
+                    if z(self.f(self.calc(r), s)):
+                        s = self.f(self.calc(r), s)
+                        r -= 1
+                return r + 1 - self.n
+            s = self.f(self.calc(r), s)
+            if r & -r == r: break
+        return 0
+ 
+P = 998244353
+op_data = lambda x, y: (x + y) % P
+op_lazy = lambda a, b: (a[0] * b[0] % P, (a[1] * b[0] + b[1]) % P)
+op_merge = lambda x, a, s: (a[0] * x + a[1] * s) % P
+unitX = 0
+unitA = (1, 0)
 
-w, n = map(int, input().split())
-seg = LazySegTree(w, op_data, u_data, op_lazy, u_lazy, op_merge)
-#seg.initialize(A) # A を遅延セグ木化
-# from operator import add
-
-ans = []
-for _ in range(n):
-    l,r = map(int,input().split())
-    m = seg.prod(l-1, r) + 1
-    ans.append(m)
-    seg.range_apply(l-1, r, m)
-
-for i in ans:
-  print(i)
+N, Q = map(int, input().split())
+A = [int(a) for a in input().split()]
+st = LazySegmentTree(A, unitX, unitA, op_data, op_merge, op_lazy)
+ 
+for _ in range(Q):
+    q = [int(a) for a in input().split()]
+    if q[0] == 0:
+        l, r, b, c = q[1:]
+        st.operate_range(l, r, (b, c))
+    else:
+        l, r = q[1:]
+        print(st.getrange(l, r))
+        
 
 """
 K - Range Affine Range Sum
