@@ -120,3 +120,29 @@ for _ in range(N-1):
  2.2点(a, b)上にあるすべての点にx加算とかできる(セグ木を使って区間処理可能）
  3.点iを根とする部分木すべてに区間処理できる
  """
+
+
+u_data = 0 # data の単位元
+u_lazy = 0 # lazy の単位元
+
+op_data = lambda x, y: x + y # d[l,m)とd[m,r)の演算, dataを返す
+op_lazy = lambda a, b: a + b 
+op_merge = lambda x, a, s: x + (a * s) # sum[l,m] = sum[l,m] + (lazy_i * len[l,m])
+
+seg = LazySegmentTree([0]*N,u_data,u_lazy,op_data,op_merge,op_lazy)
+#print(hld.in_order)
+for i in range(Q):
+    l = list(map(int,input().split()))
+    if l[0] == 1:
+        L, R = hld.subtree(l[1])
+        seg.operate_range(L, R, l[2])
+        seg.operate_range(hld.in_order[l[1]], hld.in_order[l[1]]+1,-l[2]) # 辺に追加するときは部分木の頂点に足さない
+    else:
+        ans = 0
+        #print(l[1],l[2],hld.passf(l[1], l[2]))
+        #seg.debug()
+        f = hld.lca(l[1], l[2])
+        for L, R in hld.passf(l[1], l[2]):
+            ans += seg.getrange(L, R+1)
+        ans -= seg.getrange(hld.in_order[f], hld.in_order[f]+1) # 辺の和を求めるときは lca(l,r) の分を減らす
+        print(ans)
